@@ -310,6 +310,12 @@ export const en = {
     removeEntry: 'Remove',
     skillId: 'Skill ID',
     enabled: 'Enabled',
+    addSkillToAgent: 'Add skill to agent',
+    removeSkillFromAgent: 'Remove this skill from agent',
+    skillPool: 'Available Skills',
+    noSkillsAvailable: 'No skills available (install skills in workspace or add entries above)',
+    skillsFromGateway: 'Skills discovered via Gateway',
+    assignedCount: 'skills',
   },
   cron: {
     title: 'Cron Jobs',

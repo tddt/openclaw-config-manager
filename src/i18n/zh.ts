@@ -310,6 +310,12 @@ export const zh = {
     removeEntry: '移除',
     skillId: '技能 ID',
     enabled: '启用',
+    addSkillToAgent: '为智能体添加技能',
+    removeSkillFromAgent: '从智能体移除此技能',
+    skillPool: '可用技能',
+    noSkillsAvailable: '暂无可用技能（请先在工作区安装或在上方添加技能条目）',
+    skillsFromGateway: '已通过 Gateway 发现的技能',
+    assignedCount: '个技能',
   },
   cron: {
     title: '定时任务',

@@ -36,21 +36,73 @@ export function SkillsPage() {
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const [showClawHub, setShowClawHub] = useState(false);
 
+  // --- Agent skill assignments (editable) ---
+  // keyed by agent id → current skill array draft
+  const [agentSkillsDraft, setAgentSkillsDraft] = useState<Record<string, string[]>>({});
+  // per-agent input state for adding a new skill
+  const [agentSkillInput, setAgentSkillInput] = useState<Record<string, string>>({});
+
+  // --- Gateway skills.status: all installed skill names ---
+  const [gatewaySkills, setGatewaySkills] = useState<SkillStatusEntry[]>([]);
+  const [gwState, setGwState] = useState(gatewayClient.state);
+
+  useEffect(() => {
+    const unsub = gatewayClient.onStateChange(s => setGwState(s));
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (gwState !== 'connected') return;
+    gwRpc.skillsStatus().then(r => {
+      if (r?.skills?.length) setGatewaySkills(r.skills);
+    }).catch(() => {});
+  }, [gwState]);
+
   useEffect(() => {
     setEntries(deepClone(config?.skills?.entries || {}));
     setExtraDirs(config?.skills?.extraDirs || []);
   }, [config?.skills]);
 
+  // Sync agent skills draft when config changes
+  useEffect(() => {
+    const draft: Record<string, string[]> = {};
+    for (const agent of (config?.agents?.list || [])) {
+      draft[agent.id] = [...(agent.skills || [])];
+    }
+    setAgentSkillsDraft(draft);
+  }, [config?.agents?.list]);
+
   // All skill IDs used across agents
   const agentList = config?.agents?.list || [];
   const allAgentSkills = agentList.flatMap(a => a.skills || []);
-  const uniqueSkillIds = Array.from(new Set(allAgentSkills));
+  // Gateway-discovered skill IDs
+  const gatewaySkillIds = gatewaySkills.map(s => s.id || s.name || '').filter(Boolean);
+  // Union of all known skill IDs for the global pool
+  const uniqueSkillIds = Array.from(new Set([
+    ...Object.keys(entries),
+    ...allAgentSkills,
+    ...gatewaySkillIds,
+  ]));
+
+  // Available skill pool for agent assignment picker = all known IDs
+  const skillPool = Array.from(new Set([
+    ...gatewaySkillIds,
+    ...Object.keys(entries),
+    ...allAgentSkills,
+  ])).sort();
 
   const handleSave = () => {
     if (!config) return;
+    // Build updated agents list with new skill assignments
+    const updatedAgentList = (config.agents?.list || []).map(agent => {
+      const draft = agentSkillsDraft[agent.id];
+      if (!draft) return agent;
+      return { ...agent, skills: draft.length > 0 ? draft : undefined };
+    });
     saveConfig({
       ...config,
       skills: { ...config.skills, entries, extraDirs: extraDirs.length > 0 ? extraDirs : undefined },
+      agents: { ...config.agents, list: updatedAgentList },
     });
   };
 
@@ -79,11 +131,40 @@ export function SkillsPage() {
   };
   const removeDir = (i: number) => setExtraDirs(p => p.filter((_, idx) => idx !== i));
 
+  // --- Agent skill assignment handlers ---
+  const removeSkillFromAgent = (agentId: string, skillId: string) => {
+    setAgentSkillsDraft(p => ({
+      ...p,
+      [agentId]: (p[agentId] || []).filter(s => s !== skillId),
+    }));
+  };
+
+  const addSkillToAgent = (agentId: string, skillId: string) => {
+    const id = skillId.trim();
+    if (!id) return;
+    setAgentSkillsDraft(p => {
+      const current = p[agentId] || [];
+      if (current.includes(id)) return p;
+      return { ...p, [agentId]: [...current, id] };
+    });
+    // Also ensure an entry exists in skills.entries for this skill
+    setEntries(p => {
+      if (p[id]) return p;
+      return { ...p, [id]: { enabled: true } };
+    });
+  };
+
   const changed =
     JSON.stringify(entries) !== JSON.stringify(config?.skills?.entries || {}) ||
-    JSON.stringify(extraDirs) !== JSON.stringify(config?.skills?.extraDirs || []);
+    JSON.stringify(extraDirs) !== JSON.stringify(config?.skills?.extraDirs || []) ||
+    (config?.agents?.list || []).some(agent => {
+      const draft = agentSkillsDraft[agent.id];
+      const orig = agent.skills || [];
+      if (!draft) return false;
+      return JSON.stringify(draft) !== JSON.stringify(orig);
+    });
 
-  // Merge: entry IDs from config + IDs discovered from agents (auto-create)
+  // Merge: entry IDs from config + IDs discovered from agents + gateway (auto-create)
   const allEntryIds = Array.from(new Set([...Object.keys(entries), ...uniqueSkillIds]));
 
   return (
@@ -219,62 +300,173 @@ export function SkillsPage() {
         </div>
       </SectionCard>
 
-      {/* ── Agent Skill Assignments ── */}
-      <SectionCard title={st.agentAssignments} subtitle={st.agentSkillsDesc}>
+      {/* ── Agent Skill Assignments (interactive) ── */}
+      <SectionCard
+        title={st.agentAssignments}
+        subtitle={st.agentSkillsDesc}
+      >
         {agentList.length === 0 ? (
           <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: 0 }}>{st.noAgents}</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {agentList.map(agent => (
-              <div key={agent.id} style={{
-                padding: '12px 14px',
-                background: 'var(--color-surface-2)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 9,
-                display: 'flex', alignItems: 'flex-start', gap: 12,
-              }}>
-                <div style={{
-                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-                  background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(37,99,235,0.1))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 16,
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {agentList.map(agent => {
+              const agentSkills = agentSkillsDraft[agent.id] || [];
+              const inputVal = agentSkillInput[agent.id] || '';
+              // Autocomplete: pool minus already assigned
+              const suggestions = skillPool.filter(s => !agentSkills.includes(s));
+              const filteredSuggestions = inputVal.trim()
+                ? suggestions.filter(s => s.toLowerCase().includes(inputVal.toLowerCase()))
+                : suggestions;
+
+              return (
+                <div key={agent.id} style={{
+                  padding: '12px 14px',
+                  background: 'var(--color-surface-2)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 9,
                 }}>
-                  🤖
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                      {agent.name || agent.id}
-                    </span>
-                    <code style={{ fontSize: 11, color: 'var(--color-text-muted)', fontFamily: 'var(--font-family-mono)', background: 'var(--color-surface-3)', padding: '1px 5px', borderRadius: 4 }}>
-                      {agent.id}
-                    </code>
+                  {/* Agent header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+                      background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(37,99,235,0.1))',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
+                    }}>🤖</div>
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                        {agent.name || agent.id}
+                      </span>
+                      <code style={{ marginLeft: 7, fontSize: 11, color: 'var(--color-text-muted)', fontFamily: 'var(--font-family-mono)', background: 'var(--color-surface-3)', padding: '1px 5px', borderRadius: 4 }}>
+                        {agent.id}
+                      </code>
+                    </div>
+                    <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--color-text-muted)' }}>
+                      {agentSkills.length} {st.assignedCount}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
-                    {(agent.skills || []).length === 0 ? (
-                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>无技能</span>
-                    ) : (
-                      (agent.skills || []).map(skillId => {
-                        const m = getSkillMeta(skillId);
-                        return (
-                          <span key={skillId} style={{
+
+                  {/* Assigned skill chips with remove button */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8, minHeight: 28 }}>
+                    {agentSkills.length === 0 ? (
+                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                        {st.noSkillsAvailable}
+                      </span>
+                    ) : agentSkills.map(skillId => {
+                      const m = getSkillMeta(skillId);
+                      // Warn if skill is not in the discovered pool (may not be installed)
+                      const isKnown = skillPool.includes(skillId);
+                      return (
+                        <span
+                          key={skillId}
+                          title={isKnown ? skillId : `⚠️ 未在工作区或 Gateway 中发现此技能: ${skillId}`}
+                          style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
-                            padding: '3px 9px', borderRadius: 20,
-                            background: 'rgba(244,114,182,0.1)',
-                            border: '1px solid rgba(244,114,182,0.25)',
-                            fontSize: 11, color: '#F9A8D4',
-                          }}>
-                            <span>{m.icon}</span>
-                            <span>{skillId}</span>
-                          </span>
-                        );
-                      })
-                    )}
+                            padding: '3px 5px 3px 9px', borderRadius: 20,
+                            background: isKnown ? 'rgba(244,114,182,0.1)' : 'rgba(239,68,68,0.1)',
+                            border: `1px solid ${isKnown ? 'rgba(244,114,182,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                            fontSize: 11,
+                            color: isKnown ? '#F9A8D4' : '#FCA5A5',
+                          }}
+                        >
+                          <span>{m.icon}</span>
+                          <span style={{ fontFamily: 'var(--font-family-mono)' }}>{skillId}</span>
+                          {!isKnown && <span style={{ fontSize: 10 }}>⚠️</span>}
+                          <button
+                            type="button"
+                            title={st.removeSkillFromAgent}
+                            onClick={() => removeSkillFromAgent(agent.id, skillId)}
+                            style={{
+                              marginLeft: 2, padding: '1px 3px', border: 'none', background: 'none',
+                              cursor: 'pointer', color: 'inherit', opacity: 0.7, fontSize: 11, lineHeight: 1,
+                              display: 'flex', alignItems: 'center',
+                            }}
+                          >✕</button>
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add skill to agent */}
+                  <div style={{ position: 'relative', display: 'flex', gap: 6 }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <input
+                        className="input input-mono"
+                        style={{ width: '100%', fontSize: 12 }}
+                        value={inputVal}
+                        onChange={e => setAgentSkillInput(p => ({ ...p, [agent.id]: e.target.value }))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inputVal.trim()) {
+                              addSkillToAgent(agent.id, inputVal.trim());
+                              setAgentSkillInput(p => ({ ...p, [agent.id]: '' }));
+                            }
+                          }
+                        }}
+                        placeholder={`${st.addSkillToAgent}…`}
+                      />
+                      {/* Autocomplete dropdown */}
+                      {inputVal.trim() && filteredSuggestions.length > 0 && (
+                        <div style={{
+                          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                          background: 'var(--color-surface-2)', border: '1px solid var(--color-border)',
+                          borderRadius: 7, boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                          maxHeight: 160, overflowY: 'auto',
+                        }}>
+                          {filteredSuggestions.slice(0, 10).map(s => (
+                            <button
+                              key={s}
+                              type="button"
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                addSkillToAgent(agent.id, s);
+                                setAgentSkillInput(p => ({ ...p, [agent.id]: '' }));
+                              }}
+                              style={{
+                                display: 'block', width: '100%', textAlign: 'left',
+                                padding: '6px 10px', background: 'none', border: 'none',
+                                color: 'var(--color-text-secondary)', cursor: 'pointer',
+                                fontFamily: 'var(--font-family-mono)', fontSize: 12,
+                              }}
+                            >
+                              {getSkillMeta(s).icon} {s}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ flexShrink: 0 }}
+                      disabled={!inputVal.trim()}
+                      onClick={() => {
+                        if (inputVal.trim()) {
+                          addSkillToAgent(agent.id, inputVal.trim());
+                          setAgentSkillInput(p => ({ ...p, [agent.id]: '' }));
+                        }
+                      }}
+                    >
+                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      添加
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+        )}
+        {/* Gateway skill pool hint */}
+        {gwState === 'connected' && gatewaySkillIds.length > 0 && (
+          <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 10, marginBottom: 0 }}>
+            💡 {st.skillsFromGateway}：{gatewaySkillIds.length} 个（输入框中可自动补全）
+          </p>
+        )}
+        {gwState !== 'connected' && (
+          <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 10, marginBottom: 0 }}>
+            ⚠️ Gateway 未连接，技能自动补全不可用
+          </p>
         )}
       </SectionCard>
 

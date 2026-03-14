@@ -24,6 +24,20 @@ export function AgentSettings() {
   const [showRelationships, setShowRelationships] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
 
+  // Gateway skill discovery — loaded once when connected
+  const [gwSkillIds, setGwSkillIds] = useState<string[]>([]);
+  const [gwState, setGwState] = useState(gatewayClient.state);
+  useEffect(() => {
+    const unsub = gatewayClient.onStateChange(s => setGwState(s));
+    return unsub;
+  }, []);
+  useEffect(() => {
+    if (gwState !== 'connected') return;
+    gwRpc.skillsStatus().then(r => {
+      if (r?.skills?.length) setGwSkillIds(r.skills.map((s: any) => s.id || s.name || '').filter(Boolean));
+    }).catch(() => {});
+  }, [gwState]);
+
   useEffect(() => {
     if (config?.agents) {
       setLocal(deepClone(config.agents));
@@ -340,6 +354,7 @@ export function AgentSettings() {
           onSave={handleSaveAgent}
           onCancel={() => setEditingAgent(null)}
           t={at}
+          gwSkillIds={gwSkillIds}
         />
       )}
 
@@ -366,13 +381,14 @@ export function AgentSettings() {
             setShowWizard(false);
           }}
           onClose={() => setShowWizard(false)}
-          knownSkillIds={Object.keys(config?.skills?.entries || {})}
+          knownSkillIds={Array.from(new Set([...Object.keys(config?.skills?.entries || {}), ...gwSkillIds]))}
         />
       )}
 
       {showRelationships && (
         <AgentRelationshipsModal
           agents={local.list || []}
+          gwSkillIds={gwSkillIds}
           onSave={newList => {
             setLocal(p => ({ ...p, list: newList }));
             setShowRelationships(false);
@@ -465,11 +481,12 @@ function ModelSelector({ value, onChange, placeholder }: {
   );
 }
 
-function AgentEditModal({ agent, onSave, onCancel, t: at }: {
+function AgentEditModal({ agent, onSave, onCancel, t: at, gwSkillIds = [] }: {
   agent: Agent;
   onSave: (a: Agent) => void;
   onCancel: () => void;
   t: any;
+  gwSkillIds?: string[];
 }) {
   const [local, setLocal] = useState<Agent>(agent);
   const { config, openclawHome } = useAppStore();
@@ -480,8 +497,8 @@ function AgentEditModal({ agent, onSave, onCancel, t: at }: {
     ? openclawHome.replace(/\\/g, '/').replace(/\/\.openclaw\/?$/, '') + '/my_workspace'
     : '~/my_workspace';
 
-  // 所有已知技能 ID（来自 config.skills.entries）+ 当前 agent 已用的
-  const knownSkillIds = Object.keys(config?.skills?.entries || {});
+  // 所有已知技能 ID: config.skills.entries + Gateway 发现的 + 当前 agent 已用的
+  const knownSkillIds = Array.from(new Set([...Object.keys(config?.skills?.entries || {}), ...gwSkillIds]));
   const allSkillIds = Array.from(new Set([...knownSkillIds, ...(local.skills || [])]));
 
   const isSelected = (id: string) => (local.skills || []).includes(id);
@@ -1007,10 +1024,11 @@ function AgentFilesModal({ agent, onClose }: { agent: Agent; onClose: () => void
 
 // ─── AgentRelationshipsModal ──────────────────────────────────
 
-function AgentRelationshipsModal({ agents, onSave, onClose }: {
+function AgentRelationshipsModal({ agents, onSave, onClose, gwSkillIds = [] }: {
   agents: Agent[];
   onSave: (list: Agent[]) => void;
   onClose: () => void;
+  gwSkillIds?: string[];
 }) {
   const { config } = useAppStore();
   const [localAgents, setLocalAgents] = useState<Agent[]>(() => JSON.parse(JSON.stringify(agents)));
@@ -1019,7 +1037,8 @@ function AgentRelationshipsModal({ agents, onSave, onClose }: {
   const [skillInput, setSkillInput] = useState('');
 
   const sel = localAgents.find(a => a.id === selected) || null;
-  const knownSkillIds = Object.keys(config?.skills?.entries || {});
+  // 所有已知技能 ID: config.skills.entries + Gateway 发现的
+  const knownSkillIds = Array.from(new Set([...Object.keys(config?.skills?.entries || {}), ...gwSkillIds]));
 
   // Clear skill input when switching agents
   useEffect(() => { setSkillInput(''); }, [selected]);
