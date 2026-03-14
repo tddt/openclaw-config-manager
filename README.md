@@ -274,7 +274,7 @@ The **Chat** page includes a **Broadcast Mode** that sends a single message in p
 
 | Problem | Solution |
 |---|---|
-| "Gateway not connected" on launch | Make sure OpenClaw Gateway is running: `openclaw gateway run` |
+| "Gateway not connected" on launch | Make sure OpenClaw Gateway is running: `openclaw gateway start` |
 | Tauri command fails | Ensure Rust toolchain is installed: `rustup update stable` |
 | Window is blank | Run `npm run dev` to check for frontend errors in browser console |
 | Config changes not saved | Check file permissions on `~/.openclaw/openclaw.json` |
@@ -547,7 +547,7 @@ await handleBroadcastSend(targets, message);
 
 | 问题 | 解决方案 |
 |---|---|
-| 启动后显示"未连接网关" | 确保 OpenClaw Gateway 正在运行：`openclaw gateway run` |
+| 启动后显示"未连接网关" | 确保 OpenClaw Gateway 正在运行：`openclaw gateway start` |
 | Tauri 命令执行失败 | 检查 Rust 工具链：`rustup update stable` |
 | 窗口空白 | 运行 `npm run dev`，在浏览器控制台查看前端错误 |
 | 配置修改后未保存 | 检查 `~/.openclaw/openclaw.json` 的文件读写权限 |
@@ -558,3 +558,4 @@ await handleBroadcastSend(targets, message);
 ### 📄 许可证
 
 MIT © OpenClaw Contributors
+
