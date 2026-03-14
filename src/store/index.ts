@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { OpenClawConfig, CronJobsFile, SkillInfo } from '../types';
+import { OpenClawConfig, CronJobsFile, SkillInfo, InstanceProfile } from '../types';
 import { Language, translations } from '../i18n';
 import { getConfigService } from '../services/config';
 
@@ -37,6 +37,10 @@ interface AppState {
   theme: Theme;
   toasts: Toast[];
 
+  // Instances
+  instances: InstanceProfile[];
+  activeInstanceId: string | null;
+
   // Computed helpers
   t: ReturnType<typeof createT>;
 
@@ -60,6 +64,12 @@ interface AppState {
 
   // Skills actions
   loadSkills: () => Promise<void>;
+
+  // Instance actions
+  addInstance: (inst: Omit<InstanceProfile, 'id' | 'createdAt'>) => void;
+  updateInstance: (id: string, patch: Partial<InstanceProfile>) => void;
+  removeInstance: (id: string) => void;
+  switchInstance: (id: string) => void;
 }
 
 function createT(language: Language) {
@@ -89,6 +99,8 @@ export const useAppStore = create<AppState>()(
       theme: 'dark',
       toasts: [],
       t: createT('zh'),
+      instances: [],
+      activeInstanceId: null,
 
       setActiveSection: (activeSection) => set({ activeSection }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
@@ -189,6 +201,34 @@ export const useAppStore = create<AppState>()(
           console.error('Failed to load skills:', e);
         }
       },
+
+      addInstance: (inst) => {
+        const id = generateId();
+        const newInst: InstanceProfile = { ...inst, id, createdAt: Date.now() };
+        set(s => ({ instances: [...s.instances, newInst] }));
+      },
+
+      updateInstance: (id, patch) => {
+        set(s => ({
+          instances: s.instances.map(i => i.id === id ? { ...i, ...patch } : i),
+        }));
+      },
+
+      removeInstance: (id) => {
+        set(s => ({
+          instances: s.instances.filter(i => i.id !== id),
+          activeInstanceId: s.activeInstanceId === id ? null : s.activeInstanceId,
+        }));
+      },
+
+      switchInstance: (id) => {
+        set(s => ({
+          activeInstanceId: id,
+          instances: s.instances.map(i =>
+            i.id === id ? { ...i, lastConnectedAt: Date.now() } : i
+          ),
+        }));
+      },
     }),
     {
       name: 'openclaw-config-manager',
@@ -198,6 +238,8 @@ export const useAppStore = create<AppState>()(
         sidebarCollapsed: s.sidebarCollapsed,
         activeSection: s.activeSection,
         configPath: s.configPath,
+        instances: s.instances,
+        activeInstanceId: s.activeInstanceId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

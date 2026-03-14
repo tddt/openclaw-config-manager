@@ -43,6 +43,9 @@ export const zh = {
     cron: '定时任务',
     rawConfig: '原始配置',
     chat: '智能体对话',
+    instances: '实例管理',
+    security: '安全分析',
+    install: '安装向导',
   },
   connection: {
     title: '连接到 OpenClaw',
@@ -444,6 +447,7 @@ export const zh = {
     system: '系统配置',
     extend: '能力扩展',
     advanced: '高级',
+    manage: '运维管理',
   },
   usage: {
     title: '用量统计',

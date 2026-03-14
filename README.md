@@ -42,6 +42,9 @@ It connects to the running OpenClaw Gateway via WebSocket and offers real-time s
 | **Cron** | Cron-expression or interval scheduling · Job enable/disable · Delivery agent targeting |
 | **Skills** | Installed skill browser · Extra skill directories · ClawHub marketplace search · API key management |
 | **Tools** | Tool profile management · Browser/canvas/node/cron/webhook/skill registry |
+| **Instances** | Manage multiple OpenClaw runtimes (local/remote/SSH tunnel) · One-click active instance switching |
+| **Security** | Config security scan · Risk scoring · Intrusion-hardening recommendations |
+| **Install Wizard** | OS-aware install guidance (Windows/macOS/Linux) · One-click copy commands · Post-install quick start |
 | **Sessions** | Live session list · Message preview · Manual reset |
 | **Usage** | Token & cost statistics · Model breakdown |
 | **Raw Config** | Full JSON editor with live syntax highlighting (read/write `openclaw.json`) |
@@ -61,6 +64,9 @@ It connects to the running OpenClaw Gateway via WebSocket and offers real-time s
 | **Skills** | Browse/install/remove skills; search ClawHub marketplace |
 | **Cron Jobs** | Create & manage scheduled tasks with cron or interval triggers |
 | **Chat** | Live chat with agents; broadcast mode dispatches to multiple agents in parallel |
+| **Instances** | Add/edit/remove local + remote instances and switch active target quickly |
+| **Security** | Run config security scans for auth/network/secrets/tls/access risks with remediation tips |
+| **Install** | Detect current OS and show guided OpenClaw installation + verification steps |
 | **Usage** | Token consumption and cost overview per model |
 | **Sessions** | Active & historical session list with message preview |
 | **Raw Config** | Low-level JSON editor for `openclaw.json` |
@@ -153,6 +159,9 @@ openclaw-config-manager/
 │   │   ├── SkillsPage.tsx
 │   │   ├── CronPage.tsx
 │   │   ├── ChatPage.tsx
+│   │   ├── InstancesPage.tsx
+│   │   ├── SecurityPage.tsx
+│   │   ├── InstallPage.tsx
 │   │   ├── UsagePage.tsx
 │   │   ├── SessionsPage.tsx
 │   │   └── RawConfig.tsx
@@ -190,6 +199,10 @@ On first launch (or after clearing settings) a connection banner appears. Enter:
 | Auth token | _(empty)_ | Bearer token if auth is enabled on the gateway |
 
 Settings are persisted with Zustand's `persist` middleware in `localStorage`.
+
+#### Multi-instance switching
+
+Use the **Instances** page to register local or remote OpenClaw gateways and switch the active instance. This is useful when you manage multiple environments (for example local dev + remote VM).
 
 ---
 
@@ -300,6 +313,9 @@ OpenClaw Config Manager 是一款基于 [Tauri 2](https://tauri.app) + React 19 
 | **定时任务** | Cron 表达式或间隔模式 · 任务启用/禁用 · 目标智能体配置 |
 | **技能** | 已安装技能浏览 · 额外技能目录 · ClawHub 市场搜索 · API 密钥管理 |
 | **工具** | 工具档案管理（浏览器/画布/Node/Cron/Webhook/技能注册表）|
+| **实例管理** | 管理多个 OpenClaw 运行实例（本地/远程/SSH 隧道）· 一键切换当前实例 |
+| **安全分析** | 配置安全扫描 · 风险评分 · 入侵防护建议 |
+| **安装向导** | 按操作系统提供安装引导（Windows/macOS/Linux）· 一键复制命令 · 安装后快速启动 |
 | **会话** | 实时会话列表 · 消息预览 · 手动重置 |
 | **用量** | Token 与费用统计 · 按模型分类 |
 | **原始配置** | 全功能 JSON 编辑器（读写 `openclaw.json`）|
@@ -319,6 +335,9 @@ OpenClaw Config Manager 是一款基于 [Tauri 2](https://tauri.app) + React 19 
 | **技能管理** | 浏览/安装/移除技能；搜索 ClawHub 市场 |
 | **定时任务** | 创建和管理 Cron 或 Interval 触发的计划任务 |
 | **聊天** | 实时聊天；广播模式可并行向多个智能体发送消息 |
+| **实例管理** | 增删改本地/远程实例，并快速切换当前连接目标 |
+| **安全分析** | 对认证/网络/密钥/TLS/访问控制进行配置安全扫描，并提供修复建议 |
+| **安装向导** | 自动识别当前系统并给出 OpenClaw 安装与验证步骤 |
 | **用量统计** | 按模型查看 Token 消耗与费用概览 |
 | **会话管理** | 活跃和历史会话列表，支持消息预览 |
 | **原始配置** | 低级 JSON 编辑器，直接读写 `openclaw.json` |
@@ -411,6 +430,9 @@ openclaw-config-manager/
 │   │   ├── SkillsPage.tsx      # 技能管理
 │   │   ├── CronPage.tsx        # 定时任务
 │   │   ├── ChatPage.tsx        # 聊天（含广播模式）
+│   │   ├── InstancesPage.tsx   # 实例管理
+│   │   ├── SecurityPage.tsx    # 安全扫描与入侵分析
+│   │   ├── InstallPage.tsx     # 安装向导
 │   │   ├── UsagePage.tsx       # 用量统计
 │   │   ├── SessionsPage.tsx    # 会话管理
 │   │   └── RawConfig.tsx       # 原始配置
@@ -448,6 +470,10 @@ openclaw-config-manager/
 | 鉴权令牌 | _（留空）_ | 若网关启用了鉴权，填写 Bearer Token |
 
 配置通过 Zustand 的 `persist` 中间件持久化到 `localStorage`。
+
+#### 多实例切换
+
+可在**实例管理**页面登记本地或远程 OpenClaw 网关，并切换当前活跃实例。适用于同时管理多个环境（例如本地开发环境 + 远程服务器环境）。
 
 ---
 

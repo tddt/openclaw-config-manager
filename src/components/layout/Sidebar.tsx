@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../../store';
 
-type NavKey = 'dashboard' | 'gateway' | 'agents' | 'channels' | 'tools' | 'skills' | 'cron' | 'chat' | 'rawConfig' | 'usage' | 'sessions';
+type NavKey = 'dashboard' | 'gateway' | 'agents' | 'channels' | 'tools' | 'skills' | 'cron' | 'chat' | 'rawConfig' | 'usage' | 'sessions' | 'instances' | 'security' | 'install';
 
 interface NavItem {
   id: string;
@@ -11,7 +11,7 @@ interface NavItem {
 }
 
 interface NavGroup {
-  groupKey: 'overview' | 'team' | 'system' | 'extend' | 'advanced';
+  groupKey: 'overview' | 'team' | 'system' | 'extend' | 'advanced' | 'manage';
   items: NavItem[];
 }
 
@@ -140,6 +140,38 @@ const navGroups: NavGroup[] = [
       },
     ],
   },
+  {
+    groupKey: 'manage',
+    items: [
+      {
+        id: 'instances',
+        labelKey: 'instances',
+        icon: (
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-9-4h4" />
+          </svg>
+        ),
+      },
+      {
+        id: 'security',
+        labelKey: 'security',
+        icon: (
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        ),
+      },
+      {
+        id: 'install',
+        labelKey: 'install',
+        icon: (
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        ),
+      },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -225,12 +257,13 @@ export function Sidebar() {
             )}
             {group.items.map(item => {
               const active = activeSection === item.id;
+              const navFallback = (t.nav as Record<string, string>)[item.labelKey];
               const label = item.labelKey === 'usage' ? t.usage.title :
                             item.labelKey === 'chat' ? t.chat.title :
                             item.labelKey === 'sessions' ? t.sessions.title :
                             item.labelKey === 'dashboard' ? t.nav.dashboard :
                             item.labelKey === 'rawConfig' ? t.nav.rawConfig :
-                            (t.nav as Record<string, string>)[item.labelKey] || item.labelKey;
+                            navFallback || item.labelKey;
               return (
                 <button
                   key={item.id}

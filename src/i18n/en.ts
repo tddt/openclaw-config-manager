@@ -43,6 +43,9 @@ export const en = {
     cron: 'Cron Jobs',
     rawConfig: 'Raw Config',
     chat: 'Chat',
+    instances: 'Instances',
+    security: 'Security',
+    install: 'Install',
   },
   connection: {
     title: 'Connect to OpenClaw',
@@ -444,6 +447,7 @@ export const en = {
     system: 'System Config',
     extend: 'Extensions',
     advanced: 'Advanced',
+    manage: 'Operations',
   },
   usage: {
     title: 'Usage Stats',

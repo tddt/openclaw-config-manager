@@ -339,3 +339,51 @@ export interface GatewayError {
   message: string;
   code?: number | string;
 }
+
+// ---- Instance Management ----
+export type InstanceType = 'local' | 'remote' | 'ssh';
+
+export interface InstanceProfile {
+  id: string;
+  name: string;
+  type: InstanceType;
+  gatewayUrl: string;      // e.g. ws://localhost:18789 or wss://remote.host:18789
+  token?: string;
+  sshHost?: string;        // SSH jump host (type=ssh)
+  sshUser?: string;
+  sshKeyPath?: string;
+  notes?: string;
+  color?: string;          // UI accent color for quick recognition
+  createdAt: number;
+  lastConnectedAt?: number;
+}
+
+// ---- Security Scan ----
+export type SecuritySeverity = 'critical' | 'high' | 'warning' | 'info' | 'ok';
+
+export interface SecurityFinding {
+  id: string;
+  severity: SecuritySeverity;
+  category: 'auth' | 'network' | 'secrets' | 'tls' | 'access' | 'config';
+  title: string;
+  description: string;
+  recommendation: string;
+  configPath?: string;     // dot-path to the config key involved
+}
+
+export interface SecurityScanResult {
+  scannedAt: number;
+  score: number;           // 0-100, higher is better
+  findings: SecurityFinding[];
+}
+
+// ---- Install Detection ----
+export type OsPlatform = 'windows' | 'macos' | 'linux' | 'unknown';
+
+export interface InstallCheck {
+  installed: boolean;
+  version?: string;
+  configExists: boolean;
+  configPath?: string;
+  npmGlobalPath?: string;
+}
